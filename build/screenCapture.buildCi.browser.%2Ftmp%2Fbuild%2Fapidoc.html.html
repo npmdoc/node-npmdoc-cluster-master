@@ -1,0 +1,460 @@
+<html><head></head><body><div class="apidocDiv">
+<style>
+/*csslint
+*/
+.apidocDiv {
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+}
+.apidocDiv a[href] {
+    color: #33f;
+    font-weight: bold;
+    text-decoration: none;
+}
+.apidocDiv a[href]:hover {
+    text-decoration: underline;
+}
+.apidocCodeCommentSpan {
+    background: #bbf;
+    color: #000;
+    display: block;
+}
+.apidocCodeKeywordSpan {
+    color: #d00;
+    font-weight: bold;
+}
+.apidocCodePre {
+    background: #eef;
+    border: 1px solid;
+    color: #777;
+    padding: 5px;
+    white-space: pre-wrap;
+}
+.apidocFooterDiv {
+    margin-top: 20px;
+    text-align: center;
+}
+.apidocModuleLi {
+    margin-top: 10px;
+}
+.apidocSectionDiv {
+    border-top: 1px solid;
+    margin-top: 20px;
+}
+.apidocSignatureSpan {
+    color: #777;
+    font-weight: bold;
+}
+</style>
+<h1>api documentation for
+    <a href="https://github.com/isaacs/cluster-master#readme">cluster-master (v0.2.1)</a>
+</h1>
+<h4>A helper script for managing a cluster of node worker servers</h4>
+<div class="apidocSectionDiv"><a href="#apidoc.tableOfContents" id="apidoc.tableOfContents"><h1>table of contents</h1></a><ol>
+
+    <li class="apidocModuleLi"><a href="#apidoc.module.cluster-master">module cluster-master</a><ol>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.cluster-master.cluster-master">
+            function <span class="apidocSignatureSpan"></span>cluster-master
+            <span class="apidocSignatureSpan">(config)</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.cluster-master.quit">
+            function <span class="apidocSignatureSpan">cluster-master.</span>quit
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.cluster-master.quitHard">
+            function <span class="apidocSignatureSpan">cluster-master.</span>quitHard
+            <span class="apidocSignatureSpan">()</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.cluster-master.resize">
+            function <span class="apidocSignatureSpan">cluster-master.</span>resize
+            <span class="apidocSignatureSpan">(n, cb_)</span>
+            </a>
+
+        </li>
+
+        <li>
+
+            <a class="apidocElementLiA" href="#apidoc.element.cluster-master.restart">
+            function <span class="apidocSignatureSpan">cluster-master.</span>restart
+            <span class="apidocSignatureSpan">(cb)</span>
+            </a>
+
+        </li>
+
+    </ol></li>
+
+</ol></div>
+
+<div class="apidocSectionDiv">
+<h1><a href="#apidoc.module.cluster-master" id="apidoc.module.cluster-master">module cluster-master</a></h1>
+
+
+    <h2>
+        <a href="#apidoc.element.cluster-master.cluster-master" id="apidoc.element.cluster-master.cluster-master">
+        function <span class="apidocSignatureSpan"></span>cluster-master
+        <span class="apidocSignatureSpan">(config)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function clusterMaster(config) {
+  if (typeof config === "string") config = { exec: config }
+
+  if (!config.exec) {
+    throw new Error("Must define a 'exec' script")
+  }
+
+  if (!cluster.isMaster) {
+    throw new Error("ClusterMaster answers to no one!\n"+
+                    "(don't run in a cluster worker script)")
+  }
+
+  if (cluster._clusterMaster) {
+    throw new Error("This cluster has a master already")
+  }
+
+  cluster._clusterMaster = module.exports
+
+  if (typeof config.repl !== 'undefined') replAddressPath = config.repl  // allow null and false
+
+  onmessage = config.onMessage || config.onmessage
+
+  clusterSize = config.size || os.cpus().length
+
+  minRestartAge = config.minRestartAge || minRestartAge
+
+  env = config.env
+
+  var masterConf = { exec: path.resolve(config.exec) }
+  if (config.silent) masterConf.silent = true
+  if (config.env) masterConf.env = config.env
+  if (config.args) masterConf.args = config.args
+
+  cluster.setupMaster(masterConf)
+
+  if (config.signals !== false) {
+    // sighup/sigint listeners
+    setupSignals()
+  }
+
+  forkListener()
+
+  // now make it the right size
+  debug((replAddressPath) ? 'resize and then setup repl' : 'resize')
+  resize(setupRepl)
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">n/a</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.cluster-master.quit" id="apidoc.element.cluster-master.quit">
+        function <span class="apidocSignatureSpan">cluster-master.</span>quit
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function quit() {
+  if (quitting) {
+    debug("Forceful shutdown")
+    // last ditch effort to force-kill all workers.
+    Object.keys(cluster.workers).forEach(function (id) {
+      var w = cluster.workers[id]
+      if (w &amp;&amp; w.process) w.process.kill("SIGKILL")
+    })
+    process.exit(1)
+  }
+
+  debug("Graceful shutdown...")
+  clusterSize = 0
+  quitting = true
+  restart(function () {
+    debug("Graceful shutdown successful")
+    process.exit(0)
+  })
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+// methods
+clusterMaster.resize(10)
+
+// graceful rolling restart
+clusterMaster.restart()
+
+// graceful shutdown
+clusterMaster.<span class="apidocCodeKeywordSpan">quit</span>()
+
+// not so graceful shutdown
+clusterMaster.quitHard()
+```
+
+## Methods
+...</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.cluster-master.quitHard" id="apidoc.element.cluster-master.quitHard">
+        function <span class="apidocSignatureSpan">cluster-master.</span>quitHard
+        <span class="apidocSignatureSpan">()</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function quitHard() {
+  quitting = true
+  quit()
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+// graceful rolling restart
+clusterMaster.restart()
+
+// graceful shutdown
+clusterMaster.quit()
+
+// not so graceful shutdown
+clusterMaster.<span class="apidocCodeKeywordSpan">quitHard</span>()
+```
+
+## Methods
+
+### clusterMaster.resize(n)
+
+Set the cluster size to `n`.  This will disconnect extra nodes and/or
+...</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.cluster-master.resize" id="apidoc.element.cluster-master.resize">
+        function <span class="apidocSignatureSpan">cluster-master.</span>resize
+        <span class="apidocSignatureSpan">(n, cb_)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function resize(n, cb_) {
+  if (typeof n === 'function') cb_ = n, n = clusterSize
+
+  if (cb_)
+    resizeCbs.push(cb_)
+
+  if (resizing)
+    return
+
+  function cb() {
+    console.error('done resizing')
+
+    resizing = false
+    var q = resizeCbs.slice(0)
+    resizeCbs.length = 0
+    q.forEach(function(c) {
+      c()
+    })
+    if (clusterSize !== Object.keys(cluster.workers).length) {
+      if (danger &amp;&amp; clusterSize === 0) {
+        debug('DANGER! something bad has happened')
+        process.exit(1)
+      } else {
+        danger = true
+        debug('DANGER! wrong number of workers')
+        setTimeout(resize, 1000)
+      }
+    } else {
+      danger = false
+    }
+  }
+
+  if (n &gt;= 0) clusterSize = n
+  var current = Object.keys(cluster.workers)
+  , c = current.length
+  , req = clusterSize - c
+
+  // avoid angry "listening" listeners
+  cluster.setMaxListeners(clusterSize * 2)
+
+  if (c === clusterSize) {
+    resizing = false
+    return cb()
+  }
+
+  var thenCnt = 0
+  function then () {
+    thenCnt ++
+    return then2
+  }
+  function then2 () {
+    if (--thenCnt === 0) {
+      resizing = false
+      return cb()
+    }
+  }
+
+  // make us have the right number of them.
+  if (req &gt; 0) while (req -- &gt; 0) {
+    debug('resizing up', req)
+    cluster.once('listening', then())
+    cluster.fork(env)
+  } else for (var i = clusterSize; i &lt; c; i ++) {
+    var worker = cluster.workers[current[i]]
+    debug('resizing down', current[i])
+    worker.once('exit', then())
+    if (worker &amp;&amp; worker.process.connected) {
+      worker.disconnect()
+    }
+  }
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+                  console.error("Message from %s %j"
+                               , this.uniqueID
+                               , msg)
+                }
+              })
+
+// methods
+clusterMaster.<span class="apidocCodeKeywordSpan">resize</span>(10)
+
+// graceful rolling restart
+clusterMaster.restart()
+
+// graceful shutdown
+clusterMaster.quit()
+...</pre></li>
+    </ul>
+
+
+
+    <h2>
+        <a href="#apidoc.element.cluster-master.restart" id="apidoc.element.cluster-master.restart">
+        function <span class="apidocSignatureSpan">cluster-master.</span>restart
+        <span class="apidocSignatureSpan">(cb)</span>
+        </a>
+    </h2>
+    <ul>
+    <li>description and source-code<pre class="apidocCodePre">function restart(cb) {
+  if (restarting) {
+    debug("Already restarting.  Cannot restart yet.")
+    return
+  }
+
+  restarting = true
+
+  // graceful restart.
+  // all the existing workers get killed, and this
+  // causes new ones to be spawned.  If there aren't
+  // already the intended number, then fork new extras.
+  var current = Object.keys(cluster.workers)
+  , length = current.length
+  , reqs = clusterSize - length
+
+  var i = 0
+
+  // if we're resizing, then just kill off a few.
+  if (reqs !== 0) {
+    debug('resize %d -&gt; %d, change = %d',
+                  current.length, clusterSize, reqs)
+
+    return resize(clusterSize, function () {
+      debug('resize cb')
+      length = clusterSize
+      graceful()
+    })
+  }
+
+  // all the current workers, kill and then wait for a
+  // new one to spawn before moving on.
+  graceful()
+  function graceful () {
+    debug("graceful %d of %d", i, length)
+    if (i &gt;= current.length) {
+      debug("graceful completion")
+      restarting = false
+      return cb &amp;&amp; cb()
+    }
+
+    var first = (i === 0)
+    , id = current[i++]
+    , worker = cluster.workers[id]
+
+    if (quitting) {
+      if (worker &amp;&amp; worker.process.connected) {
+        worker.disconnect()
+      }
+      return graceful()
+    }
+
+    // start a new one. if it lives for 2 seconds, kill the worker.
+    if (first) {
+      cluster.once('listening', function (newbie) {
+        var timer = setTimeout(function () {
+          newbie.removeListener('exit', skeptic)
+          if (worker &amp;&amp; worker.process.connected) {
+            worker.disconnect()
+          }
+          graceful()
+        }, 2000)
+        newbie.on('exit', skeptic)
+        function skeptic () {
+          debug('New worker died quickly. Aborting restart.')
+          restarting = false
+          clearTimeout(timer)
+        }
+      })
+    } else {
+      cluster.once('listening', function (newbie) {
+        if (worker &amp;&amp; worker.process.connected) {
+          worker.disconnect()
+        }
+      })
+      graceful()
+    }
+
+    cluster.fork(env)
+  }
+}</pre></li>
+    <li>example usage<pre class="apidocCodePre">...
+                }
+              })
+
+// methods
+clusterMaster.resize(10)
+
+// graceful rolling restart
+clusterMaster.<span class="apidocCodeKeywordSpan">restart</span>()
+
+// graceful shutdown
+clusterMaster.quit()
+
+// not so graceful shutdown
+clusterMaster.quitHard()
+```
+...</pre></li>
+    </ul>
+
+
+</div>
+
+<div class="apidocFooterDiv">
+    [ this document was created with
+    <a href="https://github.com/kaizhu256/node-utility2" target="_blank">utility2</a>
+    ]
+</div>
+</div>
+</body></html>
